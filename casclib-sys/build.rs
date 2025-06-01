@@ -1,6 +1,6 @@
 extern crate cmake;
 
-use std::env;
+use std::{env, fs};
 
 fn main() {
     // Gets CacsLib source path from env CASCLIB_DIR
@@ -12,8 +12,7 @@ fn main() {
 
     #[cfg(target_os = "windows")]
     {
-      cfg.cxxflag("-D UNICODE")
-        .cxxflag("-D _UNICODE");
+        cfg.cxxflag("-D UNICODE").cxxflag("-D _UNICODE");
     }
 
     // Builds CascLib using cmake
@@ -22,7 +21,14 @@ fn main() {
         .define("CASC_BUILD_STATIC_LIB", "ON")
         .build();
 
-    let lib = dst.join("lib");
+    let mut lib = dst.join("lib");
+    // on some distributions on 64 bit lib dir is called lib64
+    if fs::metadata(&lib).is_err() {
+        lib = dst.join("lib64");
+        if fs::metadata(&lib).is_err() {
+            println!("libcasc is missing");
+        }
+    }
 
     println!("cargo:rustc-link-search=native={}", lib.display());
     println!("cargo:rustc-link-lib=static=casc");
