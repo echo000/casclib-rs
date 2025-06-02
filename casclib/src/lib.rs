@@ -396,6 +396,32 @@ impl File<'_> {
         }
     }
 
+    pub fn read(&self, buf: &mut [u8]) -> Result<usize, CascError> {
+        if buf.is_empty() {
+            return Ok(0);
+        }
+
+        let mut bytes_read: u32 = 0;
+        let ok = unsafe {
+            casclib::CascReadFile(
+                self.handle,
+                buf.as_mut_ptr() as *mut std::ffi::c_void,
+                buf.len() as u32,
+                &mut bytes_read as *mut u32,
+            )
+        };
+        if ok {
+            Ok(bytes_read as usize)
+        } else {
+            Err(CascError::Io(io::Error::new(
+                io::ErrorKind::Other,
+                format!("CascReadFile failed (code = {})", unsafe {
+                    casclib::GetCascError()
+                }),
+            )))
+        }
+    }
+
     pub fn seek(&self, pos: SeekFrom) -> Result<u64, CascError> {
         let (offset, origin) = match pos {
             SeekFrom::Start(n) => (n as i64, 0), // FILE_BEGIN
