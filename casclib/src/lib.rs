@@ -91,6 +91,8 @@ pub struct Storage {
 // https://github.com/ladislav-zezula/CascLib/issues/172#issuecomment-556076211
 unsafe impl Send for Storage {}
 
+unsafe impl Sync for Storage {}
+
 impl Drop for Storage {
     fn drop(&mut self) {
         unsafe {
