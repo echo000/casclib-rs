@@ -3,7 +3,7 @@ extern crate casclib_sys as casclib;
 use std::error;
 use std::ffi::{CStr, CString};
 use std::fmt;
-use std::io;
+use std::io::{self, SeekFrom};
 use std::mem;
 use std::os::raw::c_char;
 use std::path::Path;
@@ -396,14 +396,20 @@ impl File<'_> {
         }
     }
 
-    pub fn seek(&self, position: i64, direction: usize) -> Result<u64, CascError> {
+    pub fn seek(&self, pos: SeekFrom) -> Result<u64, CascError> {
+        let (offset, origin) = match pos {
+            SeekFrom::Start(n) => (n as i64, 0), // FILE_BEGIN
+            SeekFrom::End(n) => (n, 2),          // FILE_END
+            SeekFrom::Current(n) => (n, 1),      // FILE_CURRENT
+        };
+
         let mut result: u64 = 0;
         unsafe {
             let ok = casclib::CascSetFilePointer64(
                 self.handle,
-                position,
+                offset,
                 &mut result,
-                direction as casclib::DWORD,
+                origin as casclib::DWORD,
             );
             if ok {
                 Ok(result)
