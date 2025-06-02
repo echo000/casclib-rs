@@ -365,6 +365,54 @@ impl File<'_> {
         Ok(buf)
     }
 
+    pub fn read_struct<T>(&self) -> Result<T, CascError>
+    where
+        T: Copy, // Enforce T is trivially copyable
+    {
+        use std::{io, mem::MaybeUninit};
+        let mut value = MaybeUninit::<T>::uninit();
+        let size = std::mem::size_of::<T>() as u32;
+        let mut bytes_read: u32 = 0;
+
+        unsafe {
+            let ok = casclib::CascReadFile(
+                self.handle,
+                value.as_mut_ptr() as *mut std::ffi::c_void,
+                size,
+                &mut bytes_read,
+            );
+
+            if !ok || bytes_read != size {
+                return Err(CascError::Io(io::Error::new(
+                    io::ErrorKind::UnexpectedEof,
+                    format!(
+                        "Failed to read struct: expected {} bytes, got {}",
+                        size, bytes_read
+                    ),
+                )));
+            }
+
+            Ok(value.assume_init())
+        }
+    }
+
+    pub fn seek(&self, position: i64, direction: usize) -> Result<u64, CascError> {
+        let mut result: u64 = 0;
+        unsafe {
+            let ok = casclib::CascSetFilePointer64(
+                self.handle,
+                position,
+                &mut result,
+                direction as casclib::DWORD,
+            );
+            if ok {
+                Ok(result)
+            } else {
+                Err(CascError::Code(casclib::GetCascError()))
+            }
+        }
+    }
+
     pub fn extract<T: io::Write>(&self, mut w: T) -> Result<usize, CascError> {
         unsafe {
             casclib::SetCascError(0);
