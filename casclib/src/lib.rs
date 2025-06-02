@@ -57,7 +57,7 @@ impl error::Error for CascError {
 pub fn open<P: AsRef<Path>>(path: P) -> Result<Storage, CascError> {
     #[cfg(not(target_os = "windows"))]
     let cpath = {
-        let pathstr = path.as_ref().to_str().ok_or_else(|| CascError::NonUtf8)?;
+        let pathstr = path.as_ref().to_str().ok_or(CascError::NonUtf8)?;
         CString::new(pathstr).map_err(|_| CascError::InvalidPath)?
     };
     #[cfg(target_os = "windows")]
@@ -121,14 +121,14 @@ impl Storage {
         self.file_count
     }
 
-    pub fn files<T>(&self) -> Find<'_>
+    pub fn files<T>(&self) -> Find
     where
         T: AsRef<[u8]>,
     {
         self.files_with_mask("*")
     }
 
-    pub fn files_with_mask<T>(&self, mask: T) -> Find<'_>
+    pub fn files_with_mask<T>(&self, mask: T) -> Find
     where
         T: AsRef<[u8]>,
     {
@@ -140,7 +140,7 @@ impl Storage {
         }
     }
 
-    pub fn entry<T>(&self, name: T) -> FileEntry<'_>
+    pub fn entry<T>(&self, name: T) -> FileEntry
     where
         T: Into<String>,
     {
@@ -159,9 +159,7 @@ impl Storage {
 
         unsafe {
             let mut data: casclib::CASC_FIND_DATA = std::mem::zeroed(); // Safer alternative
-            let c_pattern = CString::new(pattern)
-                .ok()
-                .unwrap_or_else(|| CString::new("*").unwrap());
+            let c_pattern = CString::new(pattern).unwrap_or_else(|_| CString::new("*").unwrap());
             let file_handle = casclib::CascFindFirstFile(
                 self.handle,
                 c_pattern.as_ptr(),
@@ -171,7 +169,7 @@ impl Storage {
             if file_handle.is_null() {
                 let code = casclib::GetCascError();
                 if code == casclib::ERROR_NO_MORE_FILES {
-                    return Ok(0);
+                    return Ok(entries_consumed);
                 } else {
                     return Err(CascError::Code(code));
                 }
@@ -225,7 +223,7 @@ pub struct FindIterator<'a> {
     data: casclib::CASC_FIND_DATA,
 }
 
-impl<'a> fmt::Debug for FindIterator<'a> {
+impl fmt::Debug for FindIterator<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("FindIterator")
             .field("find", &self.find)
@@ -343,7 +341,7 @@ pub struct File<'a> {
     size: u64,
 }
 
-impl<'a> Drop for File<'a> {
+impl Drop for File<'_> {
     fn drop(&mut self) {
         unsafe {
             casclib::CascCloseFile(self.handle);
@@ -351,7 +349,7 @@ impl<'a> Drop for File<'a> {
     }
 }
 
-impl<'a> File<'a> {
+impl File<'_> {
     pub fn get_name(&self) -> &str {
         &self.entry.name
     }
